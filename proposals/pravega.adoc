@@ -211,3 +211,84 @@ New production systems and pilot projects are being developed with Pravega by:
 * I-NET Corp. https://www.inet.co.jp/english/
 ** Construction project monitoring and analysis using streaming video, telemetry, and object detection to track progress against project plans and digital architectural models.
 ** https://youtu.be/BTh1gkf0kQQ
+
+=== Appendix 1 - Comparison with Kafka
+
+|===
+||Pravega|Kafka
+
+|_Description_
+|A reliable distributed storage system with streams as its storage primitive
+|A reliable distributed messaging system of record producers and consumers
+
+|_Unit of parallelism_
+|Stream segments
+|Topic partitions
+
+|_Consumption model_
+|Pull
+|Pull
+
+|_Storage model_
+|Append-only log
+|Append-only log
+
+|_Log contents_
+|Bytestreams or event streams
+|Records of key/value pairs
+
+|_Sharding_
+|Dynamic over time by splitting or merging segments according to neighboring key space region assignments and based on auto-scaling policies -- changes to auto-scaling policies do not re-shard a stream's prior segments according to new policies
+|Static over time based on partition count config at topic creation or upon manual reconfiguration of partition count -- changes to partition count do not re-shard a topic's prior contents according to new assignments
+
+|_Scale_
+|Adding cluster nodes rebalances stream segment containers across nodes
+|Carefully over-partition topics to support balanced broker/partition reassignments as the cluster expands (reassignments must be manually determined, scripts for automating reassignment determinations are available; reassignments must be manually initiated)
+
+|_Write latency_
+|Write & ack quorums (# of stripe mirrors & # of mirrors written) plus throttling. In the case of cache pressure, throttling occurs as cache clears along the write path to segment containers. In the case of durable write ahead log latency, throttling occurs to serve write acks.
+|Number of partitions per broker plus replication factor & min in-sync replicas
+
+|_Read latency_
+|In the case of batch streaming, throttling occurs to maximize throughput and minimize latency depending on load.
+|Fetch request min_bytes and max_wait_time
+
+|_High availablility_
+|Stripe mirroring of acknowledged writes plus long-term storage replication factor. Stripe mirroring is for recovery purposes only.
+|Partition replicas
+
+|_Ordering_
+|Per key
+|Per partition
+
+|_Read availability_
+|In the case of a cache miss, segment stores read from long-term storage which has varying replication properties
+|Reads normally target the replica designated as leader; in fetch responses, brokers can designate a read replica that the consumer should prefer in its next fetch request
+
+|_Write availability_
+|Clients postpone writes during segment store failures until segment containers are recovered, writes succeed as long as there are enough nodes to support a write quorum
+|Clients postpone writes during broker failures until new leader replicas are elected, writes succeed as long as there is a new leader for a given partition
+
+|_Transactions_
+|Resumable transactions span stream segments but do not span streams. Transaction segments are created for all stream segments, even if unused. Transaction segments append to stream segments upon commit, obviating the need for reader isolation levels.
+|Resumable transactions span topic partitions and topics. Consumers offer 2 isolation levels: one that reads aborted and uncommitted transactional records, and one that honors transactions but blocks reads at the offest of the earliest open transaction (last stable offset). Transactional records write directly to affected topic partitions.
+
+|_Storage efficiency_
+|Tiered storage is mandatory and supports HDFS, Extended S3 (ECS) and NFS (Isilon).
+|Tiered storage is optional and in preview. Open source preview supports HDFS only. Confluent proprietary preview supports S3 only.
+
+|_Retention policies_
+|Time-based and size-based retention
+|Time-based and size-based retention
+
+|_Time-aware processing_
+|Ingestion time watermarks with reader-group-level watermark coordination to support downstream event time lag & event time processing, watermark advancement for idle streams
+|Continuous refinement with windowing and suppression via Kafka Streams
+
+|_Writer API_
+|http://pravega.io/docs/latest/javadoc/clients/io/pravega/client/stream/EventStreamWriter.html[EventStreamWriter], http://pravega.io/docs/latest/javadoc/clients/io/pravega/client/byteStream/ByteStreamWriter.html[ByteStreamWriter], http://pravega.io/connectors/flink/docs/latest/streaming/#flinkpravegawriter[FlinkPravegaWriter]
+|https://kafka.apache.org/25/javadoc/org/apache/kafka/clients/producer/KafkaProducer.html[KafkaProducer], https://kafka.apache.org/25/javadoc/org/apache/kafka/streams/KafkaStreams.html[KafkaStreams]
+
+|_Reader API_
+|http://pravega.io/docs/latest/javadoc/clients/io/pravega/client/stream/EventStreamReader.html[EventStreamReader], http://pravega.io/docs/latest/javadoc/clients/io/pravega/client/byteStream/ByteStreamReader.html[ByteStreamReader], http://pravega.io/docs/latest/javadoc/clients/io/pravega/client/BatchClientFactory.html[BatchClientFactory], http://pravega.io/connectors/flink/docs/latest/streaming/#flinkpravegareader[FlinkPravegaReader]
+|https://kafka.apache.org/25/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html[KafkaConsumer], https://kafka.apache.org/25/javadoc/org/apache/kafka/streams/KafkaStreams.html[KafkaStreams]
