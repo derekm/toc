@@ -282,13 +282,13 @@ New production systems and pilot projects are being developed with Pravega by:
 |Time-based and size-based retention
 
 |_Time-aware processing_
-|Ingestion time watermarks with reader-group-level watermark coordination to support downstream event time lag & event time processing, watermark advancement for idle streams
+|Ingestion time watermarks with reader-group-level watermark coordination to support downstream event time lag & event time processing, watermark advancement for idle streams. Writers can note time as they append to the stream, enabling reader time windows.
 |Producer timestamps allow seeks based on time using per-partition time indexes. Continuous refinement with windowing and suppression via Kafka Streams is encouraged best practice in the absence of watermarks.
 
 |_Writer API_
-|http://pravega.io/docs/latest/javadoc/clients/io/pravega/client/stream/EventStreamWriter.html[EventStreamWriter], http://pravega.io/docs/latest/javadoc/clients/io/pravega/client/byteStream/ByteStreamWriter.html[ByteStreamWriter], http://pravega.io/connectors/flink/docs/latest/streaming/#flinkpravegawriter[FlinkPravegaWriter]
+|http://pravega.io/docs/latest/javadoc/clients/io/pravega/client/byteStream/ByteStreamWriter.html[ByteStreamWriter], http://pravega.io/docs/latest/javadoc/clients/io/pravega/client/stream/EventStreamWriter.html[EventStreamWriter], http://pravega.io/docs/latest/javadoc/clients/io/pravega/client/stream/TransactionalEventStreamWriter.html[TransactionalEventStreamWriter], http://pravega.io/docs/latest/javadoc/clients/io/pravega/client/SynchronizerClientFactory.html[SynchronizerClientFactory], http://pravega.io/connectors/flink/docs/latest/streaming/#flinkpravegawriter[FlinkPravegaWriter]
 |https://kafka.apache.org/25/javadoc/org/apache/kafka/clients/producer/KafkaProducer.html[KafkaProducer], https://kafka.apache.org/25/javadoc/org/apache/kafka/streams/KafkaStreams.html[KafkaStreams]
 
 |_Reader API_
-|http://pravega.io/docs/latest/javadoc/clients/io/pravega/client/stream/EventStreamReader.html[EventStreamReader], http://pravega.io/docs/latest/javadoc/clients/io/pravega/client/byteStream/ByteStreamReader.html[ByteStreamReader], http://pravega.io/docs/latest/javadoc/clients/io/pravega/client/BatchClientFactory.html[BatchClientFactory], http://pravega.io/connectors/flink/docs/latest/streaming/#flinkpravegareader[FlinkPravegaReader]
+|http://pravega.io/docs/latest/javadoc/clients/io/pravega/client/byteStream/ByteStreamReader.html[ByteStreamReader], http://pravega.io/docs/latest/javadoc/clients/io/pravega/client/stream/EventStreamReader.html[EventStreamReader], http://pravega.io/docs/latest/javadoc/clients/io/pravega/client/BatchClientFactory.html[BatchClientFactory], http://pravega.io/docs/latest/javadoc/clients/io/pravega/client/SynchronizerClientFactory.html[SynchronizerClientFactory], http://pravega.io/connectors/flink/docs/latest/streaming/#flinkpravegareader[FlinkPravegaReader]
 |https://kafka.apache.org/25/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html[KafkaConsumer], https://kafka.apache.org/25/javadoc/org/apache/kafka/streams/KafkaStreams.html[KafkaStreams]
