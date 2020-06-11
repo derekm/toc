@@ -212,7 +212,7 @@ New production systems and pilot projects are being developed with Pravega by:
 ** Construction project monitoring and analysis using streaming video, telemetry, and object detection to track progress against project plans and digital architectural models.
 ** https://youtu.be/BTh1gkf0kQQ
 
-=== Appendix 1 - Comparison with Kafka
+=== Appendix 1 -- Comparison with Kafka
 
 |===
 ||Pravega|Kafka
@@ -234,23 +234,27 @@ New production systems and pilot projects are being developed with Pravega by:
 |Append-only log
 
 |_Log contents_
-|Bytestreams or event streams
+|Bytes
 |Records of key/value pairs
 
 |_Sharding_
-|Dynamic over time by splitting or merging segments according to neighboring key space region assignments and based on auto-scaling policies -- changes to auto-scaling policies do not re-shard a stream's prior segments according to new policies
-|Static over time based on partition count config at topic creation or upon manual reconfiguration of partition count -- changes to partition count do not re-shard a topic's prior contents according to new assignments
+|Dynamic over time by splitting or merging segments according to neighboring key space region assignments and based on auto-scaling policies. Changes to auto-scaling policies do not re-shard a stream's prior segments according to new policies.
+|Static over time based on partition count config at topic creation or upon manual reconfiguration of partition count. Changes to partition count do not re-shard a topic's prior contents according to new assignments. There is no facility for reducing the number of partitions.
 
 |_Scale_
 |Adding cluster nodes rebalances stream segment containers across nodes
-|Carefully over-partition topics to support balanced broker/partition reassignments as the cluster expands (reassignments must be manually determined, scripts for automating reassignment determinations are available; reassignments must be manually initiated)
+|User must carefully over-partition topics to support balanced broker/partition reassignments as the cluster expands as a best practice. Reassignments must be manually determined. Scripts for automating reassignment determinations are available. Reassignments must be manually initiated.
+
+|_Durability_
+|Guaranteed by default
+|Not guaranteed by default, but available via flush configuration overrides
 
 |_Write latency_
-|Write & ack quorums (# of stripe mirrors & # of mirrors written) plus throttling. In the case of cache pressure, throttling occurs as cache clears along the write path to segment containers. In the case of durable write ahead log latency, throttling occurs to serve write acks.
-|Number of partitions per broker plus replication factor & min in-sync replicas
+|Write & ack quorum sizes controlling striping and mirroring plus throttling. In the case of cache pressure, throttling occurs as cache clears along the write path to segment containers. In the case of durable write ahead log latency, throttling occurs to serve write acks.
+|Depending on ack configuration, replication factor & min in-sync replicas
 
 |_Read latency_
-|In the case of batch streaming, throttling occurs to maximize throughput and minimize latency depending on load.
+|In the case of a cache miss, segment stores read from long-term storage which has varying latency properties. In the case of batch streaming, throttling occurs to maximize throughput and minimize latency depending on load.
 |Fetch request min_bytes and max_wait_time
 
 |_High availablility_
@@ -261,13 +265,9 @@ New production systems and pilot projects are being developed with Pravega by:
 |Per key
 |Per partition
 
-|_Read availability_
-|In the case of a cache miss, segment stores read from long-term storage which has varying replication properties
-|Reads normally target the replica designated as leader; in fetch responses, brokers can designate a read replica that the consumer should prefer in its next fetch request
-
-|_Write availability_
-|Clients postpone writes during segment store failures until segment containers are recovered, writes succeed as long as there are enough nodes to support a write quorum
-|Clients postpone writes during broker failures until new leader replicas are elected, writes succeed as long as there is a new leader for a given partition
+|_I/O availability_
+|Any available controllers can serve clients whose controllers fail. When reading, in the case of a cache miss, segment stores read from long-term storage which has varying replication properties. When writing, clients postpone writes during segment store failures until segment containers are reassigned and recovered from durable log. Writes succeed as long as there are enough nodes to support a write quorum.
+|Reads normally target the replica designated as leader; in fetch responses, brokers can designate a read replica that the consumer should prefer in its next fetch request. Clients postpone writes during broker failures until new leader replicas are elected. Writes succeed as long as there is a new leader for a given partition.
 
 |_Transactions_
 |Resumable transactions span stream segments but do not span streams. Transaction segments are created for all stream segments, even if unused. Transaction segments append to stream segments upon commit, obviating the need for reader isolation levels.
@@ -283,7 +283,7 @@ New production systems and pilot projects are being developed with Pravega by:
 
 |_Time-aware processing_
 |Ingestion time watermarks with reader-group-level watermark coordination to support downstream event time lag & event time processing, watermark advancement for idle streams
-|Continuous refinement with windowing and suppression via Kafka Streams
+|Producer timestamps allow seeks based on time using per-partition time indexes. Continuous refinement with windowing and suppression via Kafka Streams is encouraged best practice in the absence of watermarks.
 
 |_Writer API_
 |http://pravega.io/docs/latest/javadoc/clients/io/pravega/client/stream/EventStreamWriter.html[EventStreamWriter], http://pravega.io/docs/latest/javadoc/clients/io/pravega/client/byteStream/ByteStreamWriter.html[ByteStreamWriter], http://pravega.io/connectors/flink/docs/latest/streaming/#flinkpravegawriter[FlinkPravegaWriter]
