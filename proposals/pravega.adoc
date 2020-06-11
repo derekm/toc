@@ -243,7 +243,7 @@ New production systems and pilot projects are being developed with Pravega by:
 
 |_Scale_
 |Adding cluster nodes rebalances stream segment containers across nodes
-|User must carefully over-partition topics to support balanced broker/partition reassignments as the cluster expands as a best practice. Reassignments must be manually determined. Scripts for automating reassignment determinations are available. Reassignments must be manually initiated.
+|As a best practice, user must carefully over-partition topics to support balanced broker/partition reassignments as the cluster expands. Reassignments must be manually determined. Scripts for automating reassignment determinations are available. Reassignments must be manually initiated.
 
 |_Durability_
 |Guaranteed by default
