@@ -221,6 +221,10 @@ New production systems and pilot projects are being developed with Pravega by:
 |A reliable distributed storage system with streams as its storage primitive
 |A reliable distributed messaging system of record producers and consumersfootnote:[https://kafka.apache.org/090/documentation.html#introduction]
 
+|_Abstraction_
+|Stream
+|Topic
+
 |_Unit of parallelism_
 |Stream segments
 |Topic partitions
@@ -235,50 +239,50 @@ New production systems and pilot projects are being developed with Pravega by:
 
 |_Log contents_
 |Bytes
-|Records of key/value pairs
+|Records of key/value pairsfootnote:[https://kafka.apache.org/25/javadoc/org/apache/kafka/clients/producer/ProducerRecord.html]
 
 |_Sharding_
-|Dynamic over time by splitting or merging segments according to neighboring key space region assignments and based on auto-scaling policies. Changes to auto-scaling policies do not re-shard a stream's prior segments according to new policies.
-|Static over time based on partition count config at topic creationfootnote:[https://kafka.apache.org/documentation/#quickstart_createtopic] or upon manual reconfiguration of partition countfootnote:[https://kafka.apache.org/documentation/#basic_ops_modify_topic]. Changes to partition count do not re-shard a topic's prior contents according to new assignments. Partitions cannot be sealed. There is no facility for reducing the number of partitions.footnote:[https://cwiki.apache.org/confluence/display/KAFKA/KIP-370%3A+Remove+Orphan+Partitions] Partitions do not preserve the temporal order of their introduction.
+|Dynamic over time by splitting or merging segments according to neighboring key space region assignments and based on auto-scaling policies. Changes to auto-scaling policies do not re-shard a stream's prior segments according to new policies. Successor-predecessor relationship of segments is preserved as stream parallelism fluctuates.
+|Static over time based on partition count config at topic creationfootnote:[https://kafka.apache.org/documentation/#quickstart_createtopic] or upon manual reconfiguration of partition countfootnote:[https://kafka.apache.org/documentation/#basic_ops_modify_topic]. Changes to partition count do not re-shard a topic's prior contents according to new assignments. Partitions cannot be sealed. There is no facility for reducing the number of partitions.footnote:[https://cwiki.apache.org/confluence/display/KAFKA/KIP-370%3A+Remove+Orphan+Partitions]
 
 |_Scale_
-|Adding cluster nodes rebalances stream segment containers across nodes
-|As a best practice, user must carefully over-partition topics to support balanced broker/partition reassignments as the cluster expands.footnote:[https://www.confluent.io/blog/how-choose-number-topics-partitions-kafka-cluster/] Reassignments must be manually determined.footnote:[https://docs.confluent.io/current/kafka/post-deployment.html#scaling-the-cluster]footnote:[https://labs.tabmo.io/rebalancing-kafkas-partitions-803918d8d244] Scripts for automating reassignment determinations are available.footnote:[https://docs.confluent.io/current/kafka/rebalancer/index.html#execute-the-rebalancer]footnote:[https://github.com/DataDog/kafka-kit/tree/master/cmd/topicmappr] Reassignments must be manually initiated.
+|Adding cluster nodes rebalances stream segment containers across nodes. All components are deployed in a horizontally scalable manner. Metadata that requires write scalability is stored within Pravega itself.
+|As a best practice, user must carefully over-partition topics to support rebalancing broker/partition assignments as the cluster expands.footnote:[https://www.confluent.io/blog/how-choose-number-topics-partitions-kafka-cluster/] Rebalancing must be manually determined.footnote:[https://docs.confluent.io/current/kafka/post-deployment.html#scaling-the-cluster]footnote:[https://labs.tabmo.io/rebalancing-kafkas-partitions-803918d8d244] Proprietary and open source scripts for automating rebalance assignments are available.footnote:[https://docs.confluent.io/current/kafka/rebalancer/index.html#execute-the-rebalancer]footnote:[https://github.com/DataDog/kafka-kit/tree/master/cmd/topicmappr] Reassignments must be manually initiated.
 
 |_Durability_
-|Guaranteed by default
+|Always guaranteed
 |Not guaranteed by default, but available via flush configuration overridesfootnote:[https://kafka.apache.org/documentation/#flush.messages]
 
 |_Write latency_
-|Write & ack quorum sizes controlling striping and mirroring plus throttling. In the case of cache pressure, throttling occurs as cache clears along the write path to segment containers. In the case of durable write ahead log latency, throttling occurs to serve write acks.
-|Depending on ack configurationfootnote:[https://kafka.apache.org/documentation/#acks], replication factor & min in-sync replicas
+|1. Writer appends to segment store.
+
+2. Segment store: throttling (if needed) + durable data log writes. Write & ack quorum sizes control durable data log striping and replication.
+
+3. Segment store acks back to writer.
+|Depending on ack configurationfootnote:[https://kafka.apache.org/documentation/#acks], replication factorfootnote:[https://kafka.apache.org/documentation/#replication] & min in-sync replicasfootnote:[https://kafka.apache.org/documentation/#min.insync.replicas] may be enforced.
 
 |_Read latency_
-|In the case of a cache miss, segment stores read from long-term storage which has varying latency properties. In the case of batch streaming, throttling occurs to maximize throughput and minimize latency depending on load.
+|When tailing and a cache hit, it is a memory read. In the case of a cache miss, segment stores read from long-term storage, as is the case for catch-up reads and historical bounded streams. In the case of batch streaming, load-based throttling occurs to maximize throughput (how much data to wait for) and minimize latency (how long to wait).
 |Fetch request min_bytes and max_wait_timefootnote:[http://kafka.apache.org/25/protocol.html#The_Messages_Fetch]
-
-|_High availablility_
-|Stripe mirroring of acknowledged writes plus long-term storage replication factor. Stripe mirroring is for recovery purposes only.
-|Partition replicas
 
 |_Ordering_
 |Per key
-|Per partition
+|Per partitionfootnote:[https://kafka.apache.org/documentation/#intro_consumers]
 
-|_I/O availability_
-|Any available controllers can serve clients whose controllers fail. When reading, in the case of a cache miss, segment stores read from long-term storage which has varying replication properties. When reading or writing, clients postpone requests during segment store failures until segment containers are reassigned and recovered via durable write ahead log. Writes succeed as long as there are enough nodes to support a write quorum.
-|Reads normally target the replica designated as leader; in fetch responses, brokers can designate a read replica that the consumer should prefer in its next fetch request.footnote:[https://cwiki.apache.org/confluence/display/KAFKA/KIP-392%3A+Allow+consumers+to+fetch+from+closest+replica] Clients postpone writes during broker failures until new leader replicas are elected. Writes succeed as long as there is a new leader for a given partition.
+|_Availability_
+|Data in a stream passes through the durable data log and long term storage, two systems with different fault tolerance properties. If a controller fails, clients can use any available controllers. If a segment store fails, segment containers are reassigned and recovered by replaying the durable data log. Clients postpone requests during segment store failures until segment containers are recovered. Writes succeed as long as there are enough nodes to support a write quorum.
+|Partitions can have replicas. Reads normally target the replica designated as leader; in fetch responses, brokers can designate a read replica that the consumer should prefer in its next fetch request.footnote:[https://cwiki.apache.org/confluence/display/KAFKA/KIP-392%3A+Allow+consumers+to+fetch+from+closest+replica] Clients postpone writes during broker failures until new leader replicas are elected. Writes succeed as long as there is a new leader for a given partition.
 
 |_Transactions_
-|Resumable transactions span stream segments but do not span streams. Transaction segments are created for all stream segments, even if unused. Transaction segments append to stream segments upon commit, obviating the need for reader isolation levels.
+|Resumable transactions span stream segments. Transaction segments append to stream segments upon commit, preventing the need for reader isolation levels. Transaction segments are created for all stream segments, even if unused.
 |Resumable transactions span topic partitions and topics.footnote:[https://www.confluent.io/blog/transactions-apache-kafka/] Consumers offer 2 isolation levels: one that reads aborted and uncommitted transactional records, and one that honors transactions but blocks reads at the offest of the earliest open transaction (last stable offset).footnote:[https://kafka.apache.org/0110/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html] Transactional records write directly to affected topic partitions.
 
 |_Storage auto-tiering_
-|Tiered long-term storage is mandatory and supports HDFS, Extended S3 (Dell EMC ECS) and NFS.
+|Tiered long-term storage is required and supports both file & object stores, including HDFS, Extended S3 (Dell EMC ECS) and NFS.
 |Tiered storage is optional and in preview. Open source preview supports HDFS only.footnote:[https://github.com/apache/kafka/pull/7561] Confluent proprietary preview supports S3 only.footnote:[https://docs.confluent.io/5.5.0/kafka/tiered-storage-preview.html]
 
-|_Storage lifetime_
-|Potentially infinite, available until explicitly deleted
+|_Data retention_
+|Unbounded, available until explicitly deleted
 |Typically used as a short-term buffer, sometimes weeks or months, with messages often removed after being consumed
 
 |_Retention policies_
@@ -287,11 +291,11 @@ New production systems and pilot projects are being developed with Pravega by:
 
 |_Geo-replication_
 |Support is planned but not yet implemented
-|Supported via MirrorMakerfootnote:[https://cwiki.apache.org/confluence/pages/viewpage.action?pageId=27846330]
+|Supported via MirrorMaker 2.0footnote:[https://cwiki.apache.org/confluence/display/KAFKA/KIP-382%3A+MirrorMaker+2.0]
 
 |_Time-aware processing_
 |Ingestion time watermarks with reader-group-level watermark coordination to support downstream event time lag & event time processing, watermark advancement for idle streams. Writers can note time as they append to the stream, enabling reader time windows.
-|Producer timestamps allow seeks based on time using per-partition time indexes.footnote:[https://cwiki.apache.org/confluence/display/KAFKA/KIP-32+-+Add+timestamps+to+Kafka+message]footnote:[https://cwiki.apache.org/confluence/display/KAFKA/KIP-33+-+Add+a+time+based+log+index] Continuous refinement with windowing and suppression via Kafka Streams is encouraged best practice in the absence of watermarks.footnote:[https://www.confluent.io/blog/kafka-streams-take-on-watermarks-and-triggers/]
+|Producer timestamps allow seeks based on time using per-partition time indexesfootnote:[https://cwiki.apache.org/confluence/display/KAFKA/KIP-32+-+Add+timestamps+to+Kafka+message]footnote:[https://cwiki.apache.org/confluence/display/KAFKA/KIP-33%20-%20Add%20a%20time%20based%20log%20index] and log retention at the record level instead of the log segment levelfootnote:[https://www.confluent.io/blog/announcing-apache-kafka-0-10-1-0/].
 
 |_Writer API_
 |http://pravega.io/docs/latest/javadoc/clients/io/pravega/client/byteStream/ByteStreamWriter.html[ByteStreamWriter], http://pravega.io/docs/latest/javadoc/clients/io/pravega/client/stream/EventStreamWriter.html[EventStreamWriter], http://pravega.io/docs/latest/javadoc/clients/io/pravega/client/stream/TransactionalEventStreamWriter.html[TransactionalEventStreamWriter], http://pravega.io/docs/latest/javadoc/clients/io/pravega/client/SynchronizerClientFactory.html[SynchronizerClientFactory], http://pravega.io/connectors/flink/docs/latest/streaming/#flinkpravegawriter[FlinkPravegaWriter]
