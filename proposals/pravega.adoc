@@ -246,7 +246,7 @@ New production systems and pilot projects are being developed with Pravega by:
 |Static over time based on partition count config at topic creationfootnote:[https://kafka.apache.org/documentation/#quickstart_createtopic] or upon manual reconfiguration of partition countfootnote:[https://kafka.apache.org/documentation/#basic_ops_modify_topic]. Changes to partition count do not re-shard a topic's prior contents according to new assignments. Partitions cannot be sealed. There is no facility for reducing the number of partitions.footnote:[https://cwiki.apache.org/confluence/display/KAFKA/KIP-370%3A+Remove+Orphan+Partitions]
 
 |_Scale_
-|Adding cluster nodes rebalances stream segment containers across nodes. All components are deployed in a horizontally scalable manner. Metadata that requires write scalability is stored within Pravega itself.
+|Adding cluster nodes rebalances stream segment containers across nodes. All components are deployed in a horizontally scalable manner. Stream metadata is stored within Pravega itself to avoid a scalability bottleneck as the number of streams grows.
 |As a best practice, user must carefully over-partition topics to support rebalancing broker/partition assignments as the cluster expands.footnote:[https://www.confluent.io/blog/how-choose-number-topics-partitions-kafka-cluster/] Rebalancing must be manually determined.footnote:[https://docs.confluent.io/current/kafka/post-deployment.html#scaling-the-cluster]footnote:[https://labs.tabmo.io/rebalancing-kafkas-partitions-803918d8d244] Proprietary and open source scripts for automating rebalance assignments are available.footnote:[https://docs.confluent.io/current/kafka/rebalancer/index.html#execute-the-rebalancer]footnote:[https://github.com/DataDog/kafka-kit/tree/master/cmd/topicmappr] Reassignments must be manually initiated.
 
 |_Durability_
@@ -254,27 +254,23 @@ New production systems and pilot projects are being developed with Pravega by:
 |Not guaranteed by default, but available via flush configuration overridesfootnote:[https://kafka.apache.org/documentation/#flush.messages]
 
 |_Write latency_
-|1. Writer appends to segment store.
-
-2. Segment store: throttling (if needed) + durable data log writes. Write & ack quorum sizes control durable data log striping and replication.
-
-3. Segment store acks back to writer.
+|Writers append to segment stores, which in turn append to durable data logs. Durability and throughput of the data log are controlled by configuring the degree of replication and striping. Segment stores acknowledge once data is made durable in the log.
 |Depending on ack configurationfootnote:[https://kafka.apache.org/documentation/#acks], replication factorfootnote:[https://kafka.apache.org/documentation/#replication] & min in-sync replicasfootnote:[https://kafka.apache.org/documentation/#min.insync.replicas] may be enforced.
 
 |_Read latency_
 |When tailing and a cache hit, it is a memory read. In the case of a cache miss, segment stores read from long-term storage, as is the case for catch-up reads and historical bounded streams. In the case of batch streaming, load-based throttling occurs to maximize throughput (how much data to wait for) and minimize latency (how long to wait).
-|Fetch request min_bytes and max_wait_timefootnote:[http://kafka.apache.org/25/protocol.html#The_Messages_Fetch]
+|Fetch request min_bytes (how much data to wait for) and max_wait_time (how long to wait).footnote:[http://kafka.apache.org/25/protocol.html#The_Messages_Fetch] Caught-up consumers benefit from OS pagecache zero-copy reads.footnote:[https://kafka.apache.org/documentation.html#maximizingefficiency]
 
 |_Ordering_
 |Per key
 |Per partitionfootnote:[https://kafka.apache.org/documentation/#intro_consumers]
 
 |_Availability_
-|Data in a stream passes through the durable data log and long term storage, two systems with different fault tolerance properties. If a controller fails, clients can use any available controllers. If a segment store fails, segment containers are reassigned and recovered by replaying the durable data log. Clients postpone requests during segment store failures until segment containers are recovered. Writes succeed as long as there are enough nodes to support a write quorum.
+|Data in a stream passes through the durable data log and long term storage, two systems with different fault tolerance properties. If a controller fails, clients can use any available controllers. If a segment store fails, segment containers are reassigned and recovered by replaying the durable data log. Writes succeed as long as there are enough nodes to form a durable data log replica set.
 |Partitions can have replicas. Reads normally target the replica designated as leader; in fetch responses, brokers can designate a read replica that the consumer should prefer in its next fetch request.footnote:[https://cwiki.apache.org/confluence/display/KAFKA/KIP-392%3A+Allow+consumers+to+fetch+from+closest+replica] Clients postpone writes during broker failures until new leader replicas are elected. Writes succeed as long as there is a new leader for a given partition.
 
 |_Transactions_
-|Resumable transactions span stream segments. Transaction segments append to stream segments upon commit, preventing the need for reader isolation levels. Transaction segments are created for all stream segments, even if unused.
+|Resumable transactions span stream segments. Transaction segments append to stream segments upon commit, foregoing reader isolation levels. Transaction segments are created for all stream segments, even if unused.
 |Resumable transactions span topic partitions and topics.footnote:[https://www.confluent.io/blog/transactions-apache-kafka/] Consumers offer 2 isolation levels: one that reads aborted and uncommitted transactional records, and one that honors transactions but blocks reads at the offest of the earliest open transaction (last stable offset).footnote:[https://kafka.apache.org/0110/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html] Transactional records write directly to affected topic partitions.
 
 |_Storage auto-tiering_
