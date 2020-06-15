@@ -266,7 +266,7 @@ New production systems and pilot projects are being developed with Pravega by:
 |Per partitionfootnote:[https://kafka.apache.org/documentation/#intro_consumers]
 
 |_Availability_
-|Data in a stream passes through the durable data log and long term storage, two systems with different fault tolerance properties. If a controller fails, clients can use any available controllers. If a segment store fails, segment containers are reassigned and recovered by replaying the durable data log. Writes succeed if there are enough nodes to form a durable data log replica set.
+|Data in a stream passes through the durable data log and long-term storage, two systems with different fault tolerance properties. If a controller fails, clients can use any available controllers. If a segment store fails, segment containers are reassigned and recovered by replaying the durable data log. Writes succeed if there are enough nodes to form a durable data log replica set.
 |Partitions can have replicas. Reads normally target the replica designated as leader; in fetch responses, brokers can designate a read replica that the consumer should prefer in its next fetch request.footnote:[https://cwiki.apache.org/confluence/display/KAFKA/KIP-392%3A+Allow+consumers+to+fetch+from+closest+replica] Clients postpone writes during broker failures until new leader replicas are elected. Writes succeed if there is a new leader for a given partition.
 
 |_Transactions_
