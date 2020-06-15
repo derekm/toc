@@ -290,7 +290,7 @@ New production systems and pilot projects are being developed with Pravega by:
 |Supported via MirrorMaker 2.0footnote:[https://cwiki.apache.org/confluence/display/KAFKA/KIP-382%3A+MirrorMaker+2.0]
 
 |_Time-aware processing_
-|Ingestion time watermarks with reader-group-level watermark coordination to support downstream event time lag & event time processing, watermark advancement for idle streams. Writers can note time as they append to the stream, enabling reader time windows.
+|Time support with reader-group-level watermark coordination to enable downstream event time processing and watermark progress for idle sources. Writers note time as they append to the stream, both regularly or transactionally, enabling reader time windows.
 |Producer timestamps allow seeks based on time using per-partition time indexesfootnote:[https://cwiki.apache.org/confluence/display/KAFKA/KIP-32+-+Add+timestamps+to+Kafka+message]footnote:[https://cwiki.apache.org/confluence/display/KAFKA/KIP-33%20-%20Add%20a%20time%20based%20log%20index] and log retention at the record level instead of the log segment levelfootnote:[https://www.confluent.io/blog/announcing-apache-kafka-0-10-1-0/].
 
 |_Writer API_
