@@ -218,7 +218,7 @@ New production systems and pilot projects are being developed with Pravega by:
 ||Pravega|Kafka
 
 |_Description_
-|A reliable distributed storage system with streams as its storage primitive
+|A reliable distributed storage system with the stream as storage primitive
 |A reliable distributed messaging system of record producers and consumersfootnote:[https://kafka.apache.org/090/documentation.html#introduction]
 
 |_Abstraction_
@@ -226,8 +226,8 @@ New production systems and pilot projects are being developed with Pravega by:
 |Topic
 
 |_Unit of parallelism_
-|Stream segments
-|Topic partitions
+|Dynamic stream segments
+|Static topic partitions
 
 |_Consumption model_
 |Pull
@@ -253,6 +253,10 @@ New production systems and pilot projects are being developed with Pravega by:
 |Always guaranteed
 |Not guaranteed by default, but available via flush configuration overridesfootnote:[https://kafka.apache.org/documentation/#flush.messages]
 
+|_Storage architecture_
+|Segments are deterministically grouped into segment containers. All segments in a segment container share the same durable data log for both write efficiency and write-through cache coherency.
+|Topic partitions each have one active log segment. Active log segments are managed by OS pagecache flush intervals for either write-back cache efficiency or write-through cache coherency.footnote:[https://docs.confluent.io/current/kafka/design.html#don-t-fear-the-filesystem] A higher number of partitions per broker negatively impacts performance.footnote:[https://stackoverflow.com/a/55014840]footnote:[https://docs.cloudera.com/runtime/7.2.0/kafka-performance-tuning/topics/kafka-tune-sizing-partition-number.html]footnote:[https://www.confluent.io/blog/configure-kafka-to-minimize-latency/]
+
 |_Write latency_
 |Writers append to segment stores, which in turn append to durable data logs. Durability and throughput of the data log are controlled by configuring the degree of replication and striping. Segment stores acknowledge once data is made durable in the log.
 |Depending on ack configurationfootnote:[https://kafka.apache.org/documentation/#acks], replication factorfootnote:[https://kafka.apache.org/documentation/#replication] & min in-sync replicasfootnote:[https://kafka.apache.org/documentation/#min.insync.replicas] may be enforced.
@@ -270,7 +274,7 @@ New production systems and pilot projects are being developed with Pravega by:
 |Partitions can have replicas. Reads normally target the replica designated as leader; in fetch responses, brokers can designate a read replica that the consumer should prefer in its next fetch request.footnote:[https://cwiki.apache.org/confluence/display/KAFKA/KIP-392%3A+Allow+consumers+to+fetch+from+closest+replica] Clients postpone writes during broker failures until new leader replicas are elected. Writes succeed if there is a new leader for a given partition.
 
 |_Transactions_
-|Resumable transactions span stream segments. Transaction segments append to stream segments upon commit, foregoing reader isolation levels. Transaction segments are created for all stream segments, even if unused.
+|Resumable transactions span stream segments. Transaction segments append to stream segments upon commit, foregoing reader isolation levels. Transaction segments are created for all stream segments, even if unused, to avoid client exceptions during transaction appends.
 |Resumable transactions span topic partitions and topics.footnote:[https://www.confluent.io/blog/transactions-apache-kafka/] Consumers offer 2 isolation levels: one that reads aborted and uncommitted transactional records, and one that honors transactions but blocks reads at the offset of the earliest open transaction (last stable offset).footnote:[https://kafka.apache.org/0110/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html] Transactional records write directly to affected topic partitions.
 
 |_Storage auto-tiering_
